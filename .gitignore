@@ -1,0 +1,35 @@
+# Environment Variables & Secrets
+.env
+.env.local
+*.env
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs & Generated Artifacts
+logs/
+*.log
+generated_reports/
+*.pdf
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Celery beat
+celerybeat-schedule
+celerybeat.pid

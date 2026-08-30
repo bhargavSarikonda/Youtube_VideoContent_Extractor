@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Intelligence & Executive Summary Studio</title>
+    <meta name="description" content="AI Video Intelligence: Grounded 6-10 Line Summaries, Content Safety Verification, Action Items, Multilingual Translation, and Executive PDF Reports.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 3D Animated Background Ambient Canvas -->
+    <div class="ambient-backdrop">
+        <canvas id="bg3dCanvas"></canvas>
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Clean User-Friendly Header -->
+        <header class="app-header glass-panel">
+            <div class="brand">
+                <div class="brand-icon-wrap">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                        <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z" fill="#FF0033"/>
+                        <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="#FFFFFF"/>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h1>YouTube Video Intelligence</h1>
+                    <p class="subtitle">Extract Grounded Summaries, Action Items & Executive PDF Reports in Seconds</p>
+                </div>
+            </div>
+
+            <div class="header-status-area">
+                <div class="status-hud glass-pill" id="systemHealthBadge">
+                    <span class="pulse-dot"></span>
+                    <span id="healthText">AI Engine Ready</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main User Workspace -->
+        <main class="studio-workspace">
+            <!-- Video Input Card -->
+            <section class="card glass-panel hero-card">
+                <div class="card-glow-edge"></div>
+                <div class="card-header">
+                    <div class="header-tag-group">
+                        <span class="hud-icon">🎬</span>
+                        <h2>Extract Video Insights</h2>
+                    </div>
+                    <span class="badge-pill badge-outline">Official YouTube Videos</span>
+                </div>
+
+                <form id="extractForm" class="extract-form">
+                    <div class="url-input-container">
+                        <div class="input-icon-box">
+                            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                        </div>
+                        <input 
+                            type="text" 
+                            id="youtubeUrl" 
+                            placeholder="Paste YouTube Video URL here (e.g. https://www.youtube.com/watch?v=...)" 
+                            required
+                            autocomplete="off"
+                        >
+                        <button type="submit" id="submitBtn" class="btn-3d-glow">
+                            <span class="btn-glow-layer"></span>
+                            <span class="btn-text">Extract Insights</span>
+                            <span class="btn-spinner hidden"></span>
+                        </button>
+                    </div>
+                    <div id="urlFeedback" class="url-feedback"></div>
+
+                    <!-- Preset Sample Video Chips -->
+                    <div class="preset-chips-row">
+                        <span class="chips-label">Try an Example:</span>
+                        <button type="button" class="preset-chip" data-url="https://www.youtube.com/watch?v=PUZ-Y3xcO-k">📊 Data Engineer (1 Min)</button>
+                        <button type="button" class="preset-chip" data-url="https://www.youtube.com/watch?v=dQw4w9WgXcQ">🎵 Music & Culture</button>
+                        <button type="button" class="preset-chip" data-url="https://www.youtube.com/watch?v=kqtD5dpn9C8">🤖 Python & Tech</button>
+                    </div>
+
+                    <!-- User Friendly Options -->
+                    <div class="options-cockpit">
+                        <div class="cockpit-item">
+                            <label for="targetLanguage">
+                                <span>🌐 Output Language</span>
+                                <span class="label-hint">Translate Summary</span>
+                            </label>
+                            <div class="custom-select-wrap">
+                                <select id="targetLanguage">
+                                    <option value="en" selected>🇺🇸 English (Default)</option>
+                                    <option value="te">🇮🇳 Telugu (తెలుగు)</option>
+                                    <option value="hi">🇮🇳 Hindi (हिन्दी)</option>
+                                    <option value="ta">🇮🇳 Tamil (தமிழ்)</option>
+                                    <option value="es">🇪🇸 Spanish (Español)</option>
+                                    <option value="fr">🇫🇷 French (Français)</option>
+                                    <option value="de">🇩🇪 German (Deutsch)</option>
+                                    <option value="ja">🇯🇵 Japanese (日本語)</option>
+                                    <option value="zh">🇨🇳 Chinese (中文)</option>
+                                    <option value="ar">🇸🇦 Arabic (العربية)</option>
+                                    <option value="pt">🇧🇷 Portuguese (Português)</option>
+                                    <option value="ru">🇷🇺 Russian (Русский)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="cockpit-item">
+                            <label for="customFocus">
+                                <span>🎯 Key Topic of Focus (Optional)</span>
+                                <span class="label-hint">Customize Takeaways</span>
+                            </label>
+                            <input type="text" id="customFocus" placeholder="e.g. Key takeaways, tools mentioned, architecture">
+                        </div>
+
+                        <div class="cockpit-item checkbox-cockpit">
+                            <label class="switch-3d-container">
+                                <input type="checkbox" id="requireHumanReview">
+                                <span class="switch-3d-slider"></span>
+                                <div class="switch-text-wrap">
+                                    <span class="switch-title">Review Before PDF</span>
+                                    <span class="switch-subtitle">Allow editing summary lines before export</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Holographic Execution Percentile Bar HUD -->
+            <section id="pipelineSection" class="card glass-panel execution-hud-card hidden">
+                <div class="hud-header">
+                    <div class="hud-title-group">
+                        <div class="radar-pulse"></div>
+                        <div>
+                            <h2>Processing Video Intelligence</h2>
+                            <p class="hud-sub">AI is analyzing content, verifying safety, and generating report...</p>
+                        </div>
+                    </div>
+                    <div class="hud-controls-group">
+                        <button type="button" id="stopPipelineBtn" class="btn-stop-hud" title="Stop video analysis">
+                            <span>⏹ Stop Analysis</span>
+                        </button>
+                        <div class="hud-status-badge" id="jobStatusBadge">ANALYZING</div>
+                    </div>
+                </div>
+
+                <!-- Percentile Engine -->
+                <div class="percentile-engine-container">
+                    <div class="percentile-dial-wrapper">
+                        <svg class="percentile-svg-ring" viewBox="0 0 120 120">
+                            <circle class="ring-bg" cx="60" cy="60" r="50"></circle>
+                            <circle class="ring-fill" id="ringProgress" cx="60" cy="60" r="50"></circle>
+                        </svg>
+                        <div class="dial-center">
+                            <span class="dial-number" id="progressPercentage">0%</span>
+                            <span class="dial-label">PROGRESS</span>
+                        </div>
+                    </div>
+
+                    <div class="percentile-track-wrapper">
+                        <div class="track-header-row">
+                            <span class="track-stage-text" id="stageStatusText">Starting video content extraction...</span>
+                            <span class="track-eta" id="executionTimer">Time: 0.0s</span>
+                        </div>
+
+                        <!-- Glowing Percentile Linear Bar -->
+                        <div class="percentile-bar-3d">
+                            <div class="percentile-bar-glow" id="progressBarGlow" style="width: 5%;"></div>
+                            <div class="percentile-bar-fill" id="progressBar" style="width: 5%;">
+                                <div class="bar-shimmer"></div>
+                            </div>
+                            <div class="bar-head-pip" id="barHeadPip" style="left: 5%;"></div>
+                        </div>
+
+                        <!-- Milestone Micro-Chips -->
+                        <div class="milestones-row">
+                            <div class="milestone-chip" id="msUrl"><span>1</span> URL Check</div>
+                            <div class="milestone-chip" id="msTranscript"><span>2</span> Captions</div>
+                            <div class="milestone-chip" id="msAgents"><span>3</span> AI Analysis</div>
+                            <div class="milestone-chip" id="msTranslate"><span>4</span> Translation</div>
+                            <div class="milestone-chip" id="msHitl"><span>5</span> Verification</div>
+                            <div class="milestone-chip" id="msPdf"><span>6</span> PDF Report</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Supervisor Review Drawer (HITL) -->
+            <section id="hitlSection" class="card glass-panel hitl-card hidden">
+                <div class="hitl-banner">
+                    <div class="hitl-warning-badge">
+                        <span class="warning-icon">✍️</span>
+                    </div>
+                    <div class="hitl-banner-text">
+                        <h3>Summary Review & Approval</h3>
+                        <p id="hitlReasonText">Please review or edit the summary lines before final PDF generation.</p>
+                    </div>
+                </div>
+
+                <div class="hitl-form-layout">
+                    <div class="hitl-form-row">
+                        <label>Reviewer Name</label>
+                        <input type="text" id="hitlReviewerName" value="Lead Reviewer">
+                    </div>
+
+                    <div class="hitl-form-row">
+                        <label>Edit Summary Lines (6 to 10 Lines)</label>
+                        <textarea id="hitlSummaryText" rows="6"></textarea>
+                    </div>
+
+                    <div class="hitl-form-row">
+                        <label>Reviewer Notes / Comments</label>
+                        <input type="text" id="hitlComments" placeholder="Approved and verified accurate...">
+                    </div>
+
+                    <div class="hitl-action-buttons">
+                        <button id="hitlApproveBtn" class="btn-3d btn-approve">
+                            <span>✅ Approve & Build PDF</span>
+                        </button>
+                        <button id="hitlEditBtn" class="btn-3d btn-edit">
+                            <span>✏️ Save Edits & Generate</span>
+                        </button>
+                        <button id="hitlRejectBtn" class="btn-3d btn-reject">
+                            <span>❌ Cancel Analysis</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Studio Section -->
+            <section id="resultsSection" class="results-studio hidden">
+                <!-- Video Overview Header Banner -->
+                <div class="card glass-panel video-hero-card">
+                    <div class="video-hero-grid">
+                        <div class="thumb-3d-wrapper">
+                            <img id="videoThumb" src="" alt="Thumbnail" class="video-thumb-img">
+                            <span class="thumb-duration-pill" id="videoDuration">00:00</span>
+                        </div>
+
+                        <div class="video-meta-body">
+                            <div class="meta-tags-bar">
+                                <span class="tag-badge tag-lang" id="videoLang">LANG: EN</span>
+                                <span class="tag-badge tag-words" id="videoWords">0 words</span>
+                                <span class="tag-badge tag-hitl" id="videoHitlStatus">STATUS: VERIFIED</span>
+                            </div>
+                            <h3 id="videoTitle" class="video-title-text">Video Title</h3>
+                            <p class="channel-author" id="videoChannel">Channel Name</p>
+                            <a id="videoLink" href="#" target="_blank" class="yt-link-btn">
+                                <span>Watch Original on YouTube</span>
+                                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                            </a>
+                        </div>
+
+                        <div class="hero-actions-box">
+                            <a id="downloadPdfBtn" href="#" class="btn-3d-action" download>
+                                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                <span>Download PDF</span>
+                            </a>
+                            <button id="viewTranscriptBtn" class="btn-ghost-sm">View Transcript</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2-Column User-Friendly Grid -->
+                <div class="intelligence-grid">
+                    <!-- Left Column -->
+                    <div class="grid-col left-col">
+                        <!-- Content Safety Status -->
+                        <div class="card glass-panel safety-card">
+                            <div class="card-header">
+                                <div class="header-tag-group">
+                                    <span class="hud-icon">🛡️</span>
+                                    <h2>Content Safety Assessment</h2>
+                                </div>
+                                <div id="safetyBadge" class="safety-badge badge-safe">SAFE CONTENT</div>
+                            </div>
+                            <p id="safetyAssessment" class="safety-summary-text">Verified safe: No violence, sexual abuse, self-harm, or harassment detected.</p>
+                            <div class="safety-meters-grid" id="safetyGrid">
+                                <!-- Dynamic Safety Categories -->
+                            </div>
+                        </div>
+
+                        <!-- Grounded Executive Summary -->
+                        <div class="card glass-panel summary-card">
+                            <div class="card-header">
+                                <div class="header-tag-group">
+                                    <span class="hud-icon">📝</span>
+                                    <h2>Grounded Executive Summary</h2>
+                                </div>
+                                <div class="header-right-badges">
+                                    <span class="grounding-badge">100% Video Facts</span>
+                                    <span class="line-counter-badge" id="lineCountBadge">8 Key Points</span>
+                                </div>
+                            </div>
+
+                            <div class="summary-actions-bar">
+                                <span class="summary-note">Synthesized key points directly from video content:</span>
+                                <button id="copySummaryBtn" class="btn-copy-sm">
+                                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                    <span>Copy Text</span>
+                                </button>
+                            </div>
+
+                            <div class="summary-list" id="summaryContainer">
+                                <!-- Dynamic Summary Lines -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="grid-col right-col">
+                        <!-- Action Items Card -->
+                        <div class="card glass-panel actions-card">
+                            <div class="card-header">
+                                <div class="header-tag-group">
+                                    <span class="hud-icon">🎯</span>
+                                    <h2>Action Items & Key Takeaways</h2>
+                                </div>
+                                <span class="badge-pill gradient-cyan" id="actionItemsCount">0 Tasks</span>
+                            </div>
+                            <p class="section-sub-hint">Actionable recommendations and steps extracted from the video:</p>
+
+                            <div class="actions-container" id="actionItemsContainer">
+                                <!-- Dynamic Action Items -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Complete In-App PDF Document Reader & Download Studio -->
+                <div class="card glass-panel pdf-studio-card" id="pdfReaderCard">
+                    <div class="card-header">
+                        <div class="header-tag-group">
+                            <span class="hud-icon">📄</span>
+                            <h2>Executive PDF Report</h2>
+                        </div>
+                        <div class="pdf-toolbar-group">
+                            <a id="openPdfNewTabBtn" href="#" target="_blank" class="btn-ghost-sm">
+                                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                <span>Open Fullscreen</span>
+                            </a>
+                            <a id="downloadPdfInlineBtn" href="#" class="btn-3d-sm" download>
+                                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                <span>Download PDF</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Rich Document Sheet Preview (Always 100% visible & readable) -->
+                    <div class="document-sheet-container" id="docSheetContainer">
+                        <div class="doc-sheet">
+                            <!-- Document Header -->
+                            <div class="doc-header">
+                                <div class="doc-title-box">
+                                    <span class="doc-kicker">EXECUTIVE BRIEF & INTELLIGENCE REPORT</span>
+                                    <h2 id="docVideoTitle">Video Title</h2>
+                                    <div class="doc-meta-row">
+                                        <span id="docChannel">Channel: Creator</span> &bull; 
+                                        <span id="docDuration">Duration: 00:00</span> &bull; 
+                                        <span id="docDate">Generated: Today</span>
+                                    </div>
+                                </div>
+                                <div class="doc-badge-box">
+                                    <span class="doc-safety-seal" id="docSafetySeal">🛡️ HARM-FREE CERTIFIED</span>
+                                </div>
+                            </div>
+
+                            <hr class="doc-divider">
+
+                            <!-- Document Summary -->
+                            <div class="doc-section">
+                                <h3 class="doc-section-title">1. Grounded Executive Summary</h3>
+                                <div class="doc-summary-body" id="docSummaryList">
+                                    <!-- Dynamic Document Summary -->
+                                </div>
+                            </div>
+
+                            <!-- Document Actions -->
+                            <div class="doc-section">
+                                <h3 class="doc-section-title">2. Key Recommendations & Action Items</h3>
+                                <div class="doc-actions-body" id="docActionsList">
+                                    <!-- Dynamic Document Actions -->
+                                </div>
+                            </div>
+
+                            <!-- Document Footer -->
+                            <div class="doc-footer">
+                                <span>Report generated by YouTube Video Intelligence Engine &bull; Strictly 100% Grounded in Content</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Download CTA -->
+                    <div class="pdf-bottom-cta-bar">
+                        <div class="pdf-status-indicator">
+                            <span class="pulse-dot-green"></span>
+                            <span>Report Verified & Ready for Download</span>
+                        </div>
+                        <a id="bottomDownloadPdfBtn" href="#" class="btn-3d-download-large" download>
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            <span>Download Official PDF Report (.pdf)</span>
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Raw Transcript Modal -->
+        <div id="transcriptModal" class="modal-backdrop hidden">
+            <div class="modal-overlay" id="modalOverlay"></div>
+            <div class="modal-dialog glass-panel">
+                <div class="modal-head">
+                    <h3>Raw Video Transcript</h3>
+                    <button id="closeModalBtn" class="btn-close-modal">&times;</button>
+                </div>
+                <div class="modal-content-scroll">
+                    <p id="rawTranscriptText">Transcript loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>YouTube Video Intelligence Studio &bull; Grounded Summaries &bull; Action Items &bull; Multilingual PDF Reports</p>
+        </footer>
+    </div>
+
+    <!-- Application Script -->
+    <script src="app.js"></script>
+</body>
+</html>

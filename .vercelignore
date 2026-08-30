@@ -1,0 +1,11 @@
+.git
+.pytest_cache
+tests/
+logs/*.log
+generated_reports/*.pdf
+__pycache__
+*.pyc
+.env
+Dockerfile
+docker-compose.yml
+run.py
