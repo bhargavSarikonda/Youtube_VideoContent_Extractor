@@ -2,7 +2,7 @@ import json
 import time
 import logging
 from typing import List, Dict, Any, Optional, Tuple
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, OpenAI
 
 from app.config import settings
 from app.models.schemas import (
@@ -21,12 +21,13 @@ class LLMService:
     """
     Core OpenAI Service Interface with Comprehensive Model Execution Logging.
     Enforces strict grounding (zero-hallucination) via temperature=0.0,
-    dual-layer safety moderation, and structured output formatting.
+    dual-layer safety moderation, structured output formatting, and Whisper Speech-to-Text.
     """
 
     def __init__(self):
         self.api_key = settings.OPENAI_API_KEY
         self.client = AsyncOpenAI(api_key=self.api_key) if self.api_key else None
+        self.sync_client = OpenAI(api_key=self.api_key) if self.api_key else None
         self.model = settings.OPENAI_MODEL
         self.execution_logs: List[ModelExecutionLog] = []
 
@@ -566,6 +567,153 @@ class LLMService:
             )
             self.execution_logs.append(log)
             return summary, action_items, log
+
+    # =========================================================================
+    # 5. VOICE-TO-TEXT SPEECH TRANSCRIBER (OpenAI Whisper)
+    # =========================================================================
+    async def transcribe_audio(
+        self,
+        audio_file_path: str,
+        language: Optional[str] = None
+    ) -> Tuple[str, str, ModelExecutionLog]:
+        """
+        Voice-to-Text Engine (Async): Transcribes spoken voice from an audio file using OpenAI Whisper API.
+        Returns: (transcript_text, detected_language, execution_log)
+        """
+        start_time = time.perf_counter()
+        agent_name = "Voice-to-Text Speech Transcriber (Whisper)"
+        model_used = "whisper-1"
+
+        if not self.is_configured() or not self.client:
+            latency = (time.perf_counter() - start_time) * 1000
+            log = AuditLoggerService.record_model_execution(
+                agent_name=agent_name,
+                model_name="whisper-fallback",
+                input_text=f"Audio file: {audio_file_path}",
+                latency_ms=latency,
+                status="FAILED",
+                error_detail="OpenAI API Key is not configured."
+            )
+            self.execution_logs.append(log)
+            raise ValueError("OpenAI API key is required for voice-to-text audio transcription.")
+
+        try:
+            import os
+            if not os.path.exists(audio_file_path):
+                raise FileNotFoundError(f"Audio file not found at {audio_file_path}")
+
+            with open(audio_file_path, "rb") as audio_file:
+                kwargs: Dict[str, Any] = {
+                    "model": "whisper-1",
+                    "file": audio_file,
+                    "response_format": "verbose_json"
+                }
+                if language:
+                    kwargs["language"] = language
+
+                transcription = await self.client.audio.transcriptions.create(**kwargs)
+
+            transcript_text = getattr(transcription, "text", "") or ""
+            detected_lang = getattr(transcription, "language", language or "en") or "en"
+            latency = (time.perf_counter() - start_time) * 1000
+
+            log = AuditLoggerService.record_model_execution(
+                agent_name=agent_name,
+                model_name=model_used,
+                input_text=f"Audio file: {audio_file_path} ({os.path.getsize(audio_file_path)} bytes)",
+                latency_ms=latency,
+                status="SUCCESS",
+                output_metrics=f"Transcribed {len(transcript_text.split())} words. Detected language: {detected_lang}",
+                grounding_guaranteed=True,
+                output_sample=transcript_text[:120]
+            )
+            self.execution_logs.append(log)
+            return transcript_text.strip(), detected_lang, log
+
+        except Exception as e:
+            latency = (time.perf_counter() - start_time) * 1000
+            log = AuditLoggerService.record_model_execution(
+                agent_name=agent_name,
+                model_name=model_used,
+                input_text=f"Audio file: {audio_file_path}",
+                latency_ms=latency,
+                status="FAILED",
+                error_detail=str(e)
+            )
+            self.execution_logs.append(log)
+            raise
+
+    def transcribe_audio_sync(
+        self,
+        audio_file_path: str,
+        language: Optional[str] = None
+    ) -> Tuple[str, str, ModelExecutionLog]:
+        """
+        Voice-to-Text Engine (Sync): Synchronous audio transcription using OpenAI Whisper API.
+        Returns: (transcript_text, detected_language, execution_log)
+        """
+        start_time = time.perf_counter()
+        agent_name = "Voice-to-Text Speech Transcriber (Whisper)"
+        model_used = "whisper-1"
+
+        if not self.is_configured() or not self.sync_client:
+            latency = (time.perf_counter() - start_time) * 1000
+            log = AuditLoggerService.record_model_execution(
+                agent_name=agent_name,
+                model_name="whisper-fallback",
+                input_text=f"Audio file: {audio_file_path}",
+                latency_ms=latency,
+                status="FAILED",
+                error_detail="OpenAI API Key is not configured."
+            )
+            self.execution_logs.append(log)
+            raise ValueError("OpenAI API key is required for voice-to-text audio transcription.")
+
+        try:
+            import os
+            if not os.path.exists(audio_file_path):
+                raise FileNotFoundError(f"Audio file not found at {audio_file_path}")
+
+            with open(audio_file_path, "rb") as audio_file:
+                kwargs: Dict[str, Any] = {
+                    "model": "whisper-1",
+                    "file": audio_file,
+                    "response_format": "verbose_json"
+                }
+                if language:
+                    kwargs["language"] = language
+
+                transcription = self.sync_client.audio.transcriptions.create(**kwargs)
+
+            transcript_text = getattr(transcription, "text", "") or ""
+            detected_lang = getattr(transcription, "language", language or "en") or "en"
+            latency = (time.perf_counter() - start_time) * 1000
+
+            log = AuditLoggerService.record_model_execution(
+                agent_name=agent_name,
+                model_name=model_used,
+                input_text=f"Audio file: {audio_file_path} ({os.path.getsize(audio_file_path)} bytes)",
+                latency_ms=latency,
+                status="SUCCESS",
+                output_metrics=f"Transcribed {len(transcript_text.split())} words. Detected language: {detected_lang}",
+                grounding_guaranteed=True,
+                output_sample=transcript_text[:120]
+            )
+            self.execution_logs.append(log)
+            return transcript_text.strip(), detected_lang, log
+
+        except Exception as e:
+            latency = (time.perf_counter() - start_time) * 1000
+            log = AuditLoggerService.record_model_execution(
+                agent_name=agent_name,
+                model_name=model_used,
+                input_text=f"Audio file: {audio_file_path}",
+                latency_ms=latency,
+                status="FAILED",
+                error_detail=str(e)
+            )
+            self.execution_logs.append(log)
+            raise
 
     # =========================================================================
     # Fallback & Boundary Enforcement Utilities
