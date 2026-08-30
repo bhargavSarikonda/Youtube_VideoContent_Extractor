@@ -1,22 +1,28 @@
+import os
+import re
+import tempfile
 import asyncio
 import logging
-import re
 import httpx
+from pathlib import Path
 from typing import Dict, Any, Tuple, Optional, List
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
+from youtube_transcript_api import YouTubeTranscriptApi
 import yt_dlp
 
 from app.models.schemas import VideoMetadata
+from app.services.llm_service import LLMService
 
 logger = logging.getLogger("agentic_pipeline.transcript_agent")
 
 
 class TranscriptAgent:
     """
-    Agent 2: Ultra-Fast Multilingual Video Ingestion & Transcript Extraction Agent.
-    Dual-Engine High-Speed Architecture:
-    1. Primary: Fast youtube-transcript-api
-    2. Fallback: Ultra-fast targeted yt-dlp Subtitle Stream Parser (< 3 seconds)
+    Agent 2: Robust Multilingual Video Ingestion & Voice-to-Text Agent.
+    Multi-Engine Resilient Architecture:
+    1. Primary: Fast direct youtube-transcript-api (Supports all languages & auto-subs)
+    2. Secondary: Fast targeted yt-dlp Subtitle Stream Parser
+    3. Tertiary: Voice-to-Text Speech Transcriber (OpenAI Whisper Audio Ingestion)
+    4. Fallback: Content & Metadata Context Synthesis
     """
 
     @classmethod
@@ -26,12 +32,12 @@ class TranscriptAgent:
         target_language: str = "en"
     ) -> Tuple[str, VideoMetadata, str]:
         """
-        Concurrently extracts transcript text and video metadata for maximum throughput.
+        Concurrently extracts transcript text and video metadata.
         Returns: (transcript_text, VideoMetadata, detected_language)
         """
         loop = asyncio.get_event_loop()
         
-        # Run metadata fetch and transcript extraction in parallel
+        # Run metadata fetch and transcript extraction concurrently
         metadata_task = loop.run_in_executor(None, cls._fetch_metadata, video_id)
         transcript_task = loop.run_in_executor(None, cls._fetch_transcript, video_id, target_language)
 
@@ -105,11 +111,15 @@ class TranscriptAgent:
     @classmethod
     def _fetch_transcript(cls, video_id: str, target_language: str = "en") -> Tuple[str, str, List[str], bool]:
         """
-        Attempts fast transcript extraction.
-        1. Fast youtube-transcript-api
-        2. Fast targeted yt-dlp JSON3 stream (< 2.5 seconds)
+        Extracts transcript or converts voice-to-text with multi-engine fallback.
+        1. youtube-transcript-api (fast closed captions)
+        2. yt-dlp subtitle stream parser
+        3. OpenAI Whisper Voice-to-Text (Audio speech-to-text)
+        4. Metadata & Description resilient summary
         """
-        # 1. Primary Engine: youtube-transcript-api (short socket timeout)
+        # =========================================================================
+        # 1. Primary Engine: youtube-transcript-api
+        # =========================================================================
         try:
             transcript_list = None
             if hasattr(YouTubeTranscriptApi, 'list'):
@@ -126,15 +136,31 @@ class TranscriptAgent:
                 detected_lang = "en"
                 is_generated = False
 
-                # Try finding manually created transcript
-                try:
-                    if target_language in available_codes:
+                # 1A. Try finding target language manually or generated
+                if target_language in available_codes:
+                    try:
                         selected_transcript = transcript_list.find_manually_created_transcript([target_language])
-                    else:
+                        detected_lang = selected_transcript.language_code
+                        is_generated = False
+                    except Exception:
+                        try:
+                            selected_transcript = transcript_list.find_generated_transcript([target_language])
+                            detected_lang = selected_transcript.language_code
+                            is_generated = True
+                        except Exception:
+                            pass
+
+                # 1B. Try any manually created transcript
+                if not selected_transcript:
+                    try:
                         selected_transcript = transcript_list.find_manually_created_transcript(available_codes)
-                    detected_lang = selected_transcript.language_code
-                    is_generated = False
-                except Exception:
+                        detected_lang = selected_transcript.language_code
+                        is_generated = False
+                    except Exception:
+                        pass
+
+                # 1C. Try any generated transcript
+                if not selected_transcript:
                     try:
                         selected_transcript = transcript_list.find_generated_transcript(available_codes)
                         detected_lang = selected_transcript.language_code
@@ -142,10 +168,11 @@ class TranscriptAgent:
                     except Exception:
                         pass
 
+                # 1D. Fallback to iterating transcript items
                 if not selected_transcript:
                     for t in transcript_list:
                         selected_transcript = t
-                        detected_lang = t.language_code
+                        detected_lang = getattr(t, 'language_code', 'en')
                         is_generated = getattr(t, 'is_generated', False)
                         break
 
@@ -162,31 +189,44 @@ class TranscriptAgent:
 
                     full_text = " ".join(text_segments)
                     if full_text.strip():
+                        logger.info(f"Successfully extracted transcript via youtube-transcript-api (Language: {detected_lang})")
                         return full_text, detected_lang, available_codes, is_generated
 
         except Exception as e:
-            logger.info(f"Primary transcript API timed out or blocked ({e}). Engaging high-speed yt-dlp parser...")
+            logger.info(f"Primary transcript API timed out or blocked ({e}). Checking secondary engines...")
 
-        # 2. Ultra-Fast Fallback Engine: Targeted yt-dlp Subtitle Stream Parser (< 2.5 seconds)
+        # =========================================================================
+        # 2. Secondary Engine: yt-dlp Subtitle Stream Parser
+        # =========================================================================
         try:
             return cls._fetch_transcript_ytdlp(video_id, target_language)
         except Exception as e:
-            logger.error(f"High-speed yt-dlp transcript extraction failed: {e}")
-            raise ValueError(f"Could not retrieve captions for video {video_id}. Please ensure video has captions enabled.")
+            logger.info(f"yt-dlp subtitle stream extraction not found or blocked ({e}). Engaging Voice-to-Text Whisper Engine...")
+
+        # =========================================================================
+        # 3. Tertiary Engine: Voice-to-Text Audio Speech Transcription (Whisper)
+        # =========================================================================
+        try:
+            return cls._fetch_voice_to_text_whisper(video_id, target_language)
+        except Exception as e:
+            logger.warning(f"Voice-to-Text Whisper transcription failed: {e}. Engaging metadata synthesis fallback...")
+
+        # =========================================================================
+        # 4. Quaternary Engine: Resilient Metadata & Content Context
+        # =========================================================================
+        return cls._fetch_metadata_fallback(video_id)
 
     @classmethod
     def _fetch_transcript_ytdlp(cls, video_id: str, target_language: str = "en") -> Tuple[str, str, List[str], bool]:
         """
-        Ultra-fast targeted yt-dlp subtitle stream parser.
-        Restricts requested languages to target + en to avoid massive overhead of 'all' languages.
+        Targeted yt-dlp subtitle stream parser.
+        Inspects all available subtitle languages (manual & automatic).
         """
-        requested_langs = list(set([target_language, 'en', 'en-US', 'en-GB', 'en-CA', 'en-AU']))
-        
         ydl_opts = {
             'skip_download': True,
             'writesubtitles': True,
             'writeautomaticsub': True,
-            'subtitleslangs': requested_langs,
+            'allsubtitles': True,
             'quiet': True,
             'no_warnings': True,
             'socket_timeout': 5,
@@ -197,28 +237,12 @@ class TranscriptAgent:
             if not info:
                 raise ValueError("yt-dlp could not extract video info.")
 
-            manual_subs = info.get('subtitles', {})
-            auto_subs = info.get('automatic_captions', {})
+            manual_subs = info.get('subtitles', {}) or {}
+            auto_subs = info.get('automatic_captions', {}) or {}
 
             available_codes = list(set(list(manual_subs.keys()) + list(auto_subs.keys())))
-            
-            # If no subtitles/captions exist on YouTube (e.g. ambient scenery, music, silent clips)
             if not available_codes:
-                logger.info(f"No subtitle tracks available on YouTube for video {video_id}. Engaging Metadata & Description Fallback...")
-                desc = (info.get('description') or '').strip()
-                tags = info.get('tags', []) or []
-                tags_str = ", ".join(tags[:10]) if tags else "General Content"
-                title = info.get('title', f"Video ({video_id})")
-                uploader = info.get('uploader', info.get('channel', 'Creator'))
-
-                fallback_text = (
-                    f"[Visual / Non-Speech Media Note: This video has no spoken dialogue captions on YouTube.]\n"
-                    f"Video Title: {title}\n"
-                    f"Creator / Channel: {uploader}\n"
-                    f"Author's Summary & Description: {desc if desc else 'Pure ambient/visual video clip without extended commentary.'}\n"
-                    f"Content Tags: {tags_str}"
-                )
-                return fallback_text, "en", ["en"], False
+                raise ValueError("No subtitle tracks found in yt-dlp stream.")
 
             is_generated = False
             tracks = []
@@ -251,17 +275,7 @@ class TranscriptAgent:
                 is_generated = True
 
             if not tracks:
-                logger.info(f"No matching subtitle track found for video {video_id}. Engaging Metadata Fallback...")
-                desc = (info.get('description') or '').strip()
-                title = info.get('title', f"Video ({video_id})")
-                uploader = info.get('uploader', info.get('channel', 'Creator'))
-                fallback_text = (
-                    f"[Visual / Non-Speech Media Note: This video has no spoken dialogue captions on YouTube.]\n"
-                    f"Video Title: {title}\n"
-                    f"Creator: {uploader}\n"
-                    f"Description: {desc if desc else 'Visual/ambient content.'}"
-                )
-                return fallback_text, "en", ["en"], False
+                raise ValueError("No subtitle tracks available for parsing.")
 
             # Find best format: json3 or vtt
             json3_track = next((t for t in tracks if t.get('ext') == 'json3'), None)
@@ -301,4 +315,114 @@ class TranscriptAgent:
                 if not full_text:
                     raise ValueError("Extracted subtitle content is empty.")
 
+                logger.info(f"Successfully extracted subtitles via yt-dlp (Language: {detected_lang})")
                 return full_text, detected_lang, available_codes, is_generated
+
+    @classmethod
+    def _fetch_voice_to_text_whisper(cls, video_id: str, target_language: str = "en") -> Tuple[str, str, List[str], bool]:
+        """
+        Voice-to-Text Engine: Downloads low-bitrate audio stream and transcribes spoken dialogue via OpenAI Whisper.
+        """
+        llm = LLMService()
+        if not llm.is_configured():
+            raise ValueError("OpenAI API Key not configured for Voice-to-Text Whisper transcription.")
+
+        # Prepare temporary audio destination (compatible with Vercel /tmp)
+        tmp_dir = Path("/tmp") if os.path.exists("/tmp") else Path(tempfile.gettempdir())
+        output_template = str(tmp_dir / f"yt_audio_{video_id}.%(ext)s")
+        expected_audio_file = None
+
+        ydl_opts = {
+            'format': 'ba[ext=m4a]/ba/b',
+            'outtmpl': output_template,
+            'quiet': True,
+            'no_warnings': True,
+            'max_filesize': 25 * 1024 * 1024,  # 25 MB max limit for Whisper API
+            'socket_timeout': 10,
+        }
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=True)
+                if not info:
+                    raise ValueError("Failed downloading audio stream from YouTube.")
+                
+                # Identify downloaded audio path
+                ext = info.get('ext', 'm4a')
+                candidate_path = str(tmp_dir / f"yt_audio_{video_id}.{ext}")
+                if os.path.exists(candidate_path):
+                    expected_audio_file = candidate_path
+                else:
+                    # Search tmp_dir for matching file
+                    matches = list(tmp_dir.glob(f"yt_audio_{video_id}.*"))
+                    if matches:
+                        expected_audio_file = str(matches[0])
+
+            if not expected_audio_file or not os.path.exists(expected_audio_file):
+                raise FileNotFoundError(f"Downloaded audio file for video {video_id} could not be located.")
+
+            # Perform Whisper speech-to-text transcription
+            whisper_text, detected_lang, _ = llm.transcribe_audio_sync(
+                audio_file_path=expected_audio_file,
+                language=target_language if target_language in ["en", "hi", "es", "fr", "de", "it", "ja", "ko", "pt", "ru", "zh"] else None
+            )
+
+            if not whisper_text.strip():
+                raise ValueError("Whisper transcription yielded empty voice output.")
+
+            logger.info(f"Successfully transcribed spoken voice via Whisper (Language: {detected_lang}, Words: {len(whisper_text.split())})")
+            return whisper_text, detected_lang, [detected_lang], True
+
+        finally:
+            # Clean up temporary audio files
+            if expected_audio_file and os.path.exists(expected_audio_file):
+                try:
+                    os.remove(expected_audio_file)
+                except Exception:
+                    pass
+            for f in tmp_dir.glob(f"yt_audio_{video_id}.*"):
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
+
+    @classmethod
+    def _fetch_metadata_fallback(cls, video_id: str) -> Tuple[str, str, List[str], bool]:
+        """
+        Resilient Metadata & Content Fallback:
+        Synthesizes video title, channel, description, and tags when no spoken dialogue or captions exist.
+        """
+        title = f"YouTube Video ({video_id})"
+        channel = "YouTube Creator"
+        desc = ""
+        tags_str = "General Content"
+
+        try:
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'skip_download': True,
+                'extract_flat': True,
+                'socket_timeout': 4,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+                if info:
+                    title = info.get("title", title)
+                    channel = info.get("uploader", info.get("channel", channel))
+                    desc = (info.get("description") or "").strip()
+                    tags = info.get("tags", []) or []
+                    if tags:
+                        tags_str = ", ".join(tags[:10])
+        except Exception:
+            pass
+
+        fallback_text = (
+            f"[Visual / Non-Speech Media Overview]\n"
+            f"Video Title: {title}\n"
+            f"Creator / Channel: {channel}\n"
+            f"Content Description: {desc if desc else 'Video presentation without closed captions.'}\n"
+            f"Keywords & Topics: {tags_str}"
+        )
+        return fallback_text, "en", ["en"], False
+
